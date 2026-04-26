@@ -27,6 +27,7 @@
 #include "needle_img.h"
 #include "settings_screen.h"
 #include "Settings.h"
+#include "gauge_screen.h"   /* multi-gauge dispatcher: swipe + dots + anim */
 
 static const char *TAG = "GAUGE";
 
@@ -193,17 +194,15 @@ static void sweep_cb(lv_timer_t *t)
 }
 #endif
 
-/* ---------- long-press -> settings screen -------------------------- */
-static void gauge_long_press_cb(lv_event_t *e)
-{
-    (void)e;
-    show_settings();
-}
-
 /* ---------- build the screen --------------------------------------- */
-void show_gauge(void)
+/* Renamed from show_gauge() in the multi-gauge refactor. The water-temp
+ * gauge is now one of three sibling screens; the swipe dispatcher in
+ * gauge_screen.c owns "which one is current" and calls the right
+ * show_gauge_xxx() at the right time. show_gauge() is kept as a static
+ * inline alias in display_gauge.h for back-compat. */
+void show_gauge_temp(void)
 {
-    ESP_LOGI(TAG, "show_gauge: single Pontiac face, 100..260 F");
+    ESP_LOGI(TAG, "show_gauge_temp: Pontiac face, 100..260 F");
 
     /* FRESH SCREEN PATTERN: create a brand-new screen, build the gauge
      * on it, then swap. Old screen gets deleted by lv_scr_load via
@@ -226,7 +225,9 @@ void show_gauge(void)
 
     /* Invisible full-screen touch catcher. Bottom of the z-stack so
      * face/needle/readout/cap draw on top of it. Long-press anywhere
-     * on the dial opens the settings screen. */
+     * opens settings; left/right swipe cycles to the next/previous
+     * gauge. Both behaviors are wired by gauge_screen_install_input()
+     * so they're identical across all three gauge screens. */
     lv_obj_t *touch = lv_obj_create(scr);
     lv_obj_remove_style_all(touch);
     lv_obj_set_size(touch, 480, 480);
@@ -234,8 +235,7 @@ void show_gauge(void)
     lv_obj_set_style_bg_opa(touch, LV_OPA_TRANSP, 0);
     lv_obj_add_flag(touch, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_clear_flag(touch, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_event_cb(touch, gauge_long_press_cb,
-                        LV_EVENT_LONG_PRESSED, NULL);
+    gauge_screen_install_input(touch);
 
     /* Face: full-screen static Pontiac-themed artwork. */
     lv_obj_t *face = lv_img_create(scr);
@@ -363,7 +363,13 @@ void show_gauge(void)
     lv_timer_create(sweep_cb, 40, NULL);
 #endif
 
-    /* Activate the freshly-built screen. auto_del=true frees the
-     * previous screen so there's no leak across toggles. */
-    lv_scr_load_anim(scr, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+    /* Dot indicator at the bottom of the dial -- "you are on screen
+     * 1 of 3". Anchored at y=460, well clear of the warning band. */
+    gauge_screen_draw_dots(scr, GAUGE_ID_TEMP);
+
+    /* Activate the freshly-built screen.  Animation direction is
+     * decided by the dispatcher: NONE on first paint at boot, slide
+     * left/right after a swipe.  auto_del=true frees the previous
+     * screen so there's no leak across swipes. */
+    lv_scr_load_anim(scr, gauge_screen_pop_anim(), 250, 0, true);
 }

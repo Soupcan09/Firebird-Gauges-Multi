@@ -1,15 +1,19 @@
 /*
  * splash_screen.c -- boot splash: 480x480 branded image held for
- * SPLASH_HOLD_MS milliseconds, then fades out into the gauge.
+ * SPLASH_HOLD_MS milliseconds, then fades out into the active gauge.
  *
  * Uses two LVGL one-shot timers:
  *   1) fade_cb   -- runs during the fade-out, decreasing image opacity
- *   2) done_cb   -- runs once at the very end, calls show_gauge()
+ *   2) done_cb   -- runs once at the very end, hands off to the
+ *                   multi-gauge dispatcher (gauge_screen_show_current).
+ *                   Boot default is GAUGE_ID_TEMP so power-up always
+ *                   lands on the safety-critical water-temp gauge.
  */
 #include "lvgl.h"
 #include "esp_log.h"
 #include "splash_screen.h"
-#include "display_gauge.h"
+#include "gauge_screen.h"   /* multi-gauge dispatcher (replaces direct
+                               show_gauge() call from before the refactor) */
 #include "splash_img.h"
 #include "Settings.h"
 
@@ -25,14 +29,16 @@ static const char *TAG = "SPLASH";
 static lv_obj_t   *s_splash_img = NULL;
 static lv_timer_t *s_fade_timer = NULL;
 
-/* --- one-shot: tear down splash and bring up the gauge --- */
+/* --- one-shot: tear down splash and bring up the active gauge --- */
 static void splash_done_cb(lv_timer_t *t)
 {
     (void)t;
-    /* show_gauge() builds a fresh screen from scratch and swaps it in,
-     * which destroys our splash image. */
-    ESP_LOGI(TAG, "splash_done_cb -> show_gauge()");
-    show_gauge();
+    /* gauge_screen_show_current() builds a fresh screen from scratch
+     * and swaps it in (which destroys our splash image) for whichever
+     * gauge the dispatcher considers current. At boot that's
+     * GAUGE_ID_TEMP. */
+    ESP_LOGI(TAG, "splash_done_cb -> gauge_screen_show_current()");
+    gauge_screen_show_current();
     s_splash_img = NULL;
     s_fade_timer = NULL;
 }

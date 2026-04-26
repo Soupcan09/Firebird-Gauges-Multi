@@ -20,9 +20,26 @@
 extern "C" {
 #endif
 
-/* Build and activate the gauge screen. Safe to call repeatedly -- each
- * call builds a fresh screen from scratch and swaps it in. */
-void show_gauge(void);
+/* Build and activate the water-temp gauge screen. Safe to call
+ * repeatedly -- each call builds a fresh screen from scratch and swaps
+ * it in.
+ *
+ * In the multi-gauge dispatcher world (gauge_screen.h), this is one of
+ * three sibling show_gauge_xxx() entry points; the dispatcher picks
+ * which one to call based on the swipe state.  Direct callers (boot
+ * splash, settings BACK button) should usually go through
+ * gauge_screen_show_current() instead so the user lands back on
+ * whichever gauge they were last viewing.  show_gauge_temp() remains
+ * exposed for explicit jumps (e.g. an OVERHEAT alarm could force a
+ * jump to the temp gauge regardless of current selection). */
+void show_gauge_temp(void);
+
+/* Back-compat alias: old call sites used show_gauge() before the
+ * multi-gauge refactor. Kept so any out-of-tree branch we forgot to
+ * update still compiles, but new code should call either
+ * show_gauge_temp() (explicit) or gauge_screen_show_current() (the
+ * dispatcher). */
+static inline void show_gauge(void) { show_gauge_temp(); }
 
 /* Move the needle to a temperature (Fahrenheit). Clamped to 100..260 F.
  * Also repaints the live digital readout. No-op if the gauge screen is

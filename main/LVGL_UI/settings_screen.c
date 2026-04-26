@@ -38,6 +38,9 @@
 #include "esp_log.h"
 #include "settings_screen.h"
 #include "display_gauge.h"
+#include "gauge_screen.h"   /* dispatcher: BACK + idle-timeout return to
+                               whichever gauge was last on screen, not
+                               always the temp gauge. */
 #include "Settings.h"
 #include "Temp_Sender.h"
 
@@ -227,8 +230,11 @@ static void back_cb(lv_event_t *e)
     }
     s_trip_val = s_offset_val = s_bright_val = s_splash_val = NULL;
     s_buzzer_btn = s_buzzer_lbl = s_live_lbl = NULL;
-    ESP_LOGI(TAG, "back_cb: -> show_gauge");
-    show_gauge();
+    ESP_LOGI(TAG, "back_cb: -> gauge_screen_show_current");
+    /* Return to whichever gauge the user was last viewing, not always
+     * the temp gauge. The dispatcher remembers s_current across the
+     * settings detour. */
+    gauge_screen_show_current();
 }
 
 /* ------------------------------------------------------------------ */
