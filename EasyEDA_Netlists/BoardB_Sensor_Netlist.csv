@@ -1,0 +1,10 @@
+Net,Pins (Component.PinNumber),Notes
++3V3,"J1.1, U1.8, C3.1, R8.1",VDD rail; J1.1 from Waveshare. C3 decouples close to U1.
+SDA,"J1.3, U1.9",I2C data line; pulled up by Waveshare master.
+SCL,"J1.4, U1.10",I2C clock line; pulled up by Waveshare master.
+ADDR,"U1.1, JP1.1",Address pin; JP1 closes strap to GND for 0x48.
+SENSE,"U1.4, R8.2, C2.1, TVS2.1, R11.1","Analog SENSE node. R8 pullup, C2 filter, TVS2 clamp, R11 series."
+SIG,"R11.2, J2.1",Output to sender wire (shielded).
+GND,"J1.2, U1.3, C3.2, JP1.2, C2.2, TVS2.3, J2.2",Star-ground. TVS2.3 = SOT-23 center pin (cathode).
+(NC) U1.2,U1.2,ALERT/RDY pin -- left floating; we don't use the alert function.
+(NC) U1.5-7,"U1.5, U1.6, U1.7",AIN1/AIN2/AIN3 unused -- can be tied to GND or left floating.

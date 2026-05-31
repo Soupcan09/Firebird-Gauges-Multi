@@ -16,6 +16,8 @@
 #include "Temp_Sender.h"
 #include "Settings.h"
 #include "Wireless.h"
+#include "GPS.h"
+#include "OTA.h"
 #include "esp_log.h"
 
 void Driver_Loop(void *parameter)
@@ -58,8 +60,10 @@ void app_main(void)
 /********************* Demo *********************/
     // Lvgl_Example1();  // Waveshare demo UI (disabled)
     Settings_Init();      // Load NVS-backed user prefs (trip, offset, bright, buzzer)
-    show_splash();        // Boot splash -> auto-transitions to show_gauge()
-    TempSender_Init();    // ADS1115 + Prosport sender -> drives the needle
+    show_splash();        // Boot splash -> auto-transitions to gauge_screen_show_current()
+    TempSender_Init();    // ADS1115 + Prosport sender -> drives the temp needle
+    GPS_Init();           // BN-880 NMEA receiver on UART0 (JST UART connector)
+    OTA_Init();           // OTA rollback self-check; module ready to receive update triggers
 
     // lv_demo_widgets();
     // lv_demo_keypad_encoder();

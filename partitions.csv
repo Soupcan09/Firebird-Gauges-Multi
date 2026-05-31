@@ -1,7 +1,26 @@
-# Name,     Type, SubType, Offset,   Size, Flags
-# Note: if you have increased the bootloader size, make sure to update the offsets to avoid overlap,,,,
-# Bumped factory 3M -> 5M to fit two gauge-face PNGs (CLASSIC + COMPACT)
-# baked into the binary.  16MB chip; flash_test auto-places after factory.
-nvs,        data, nvs,      0x9000,  0x6000,
-factory,0,0,        0x10000, 5M,
-flash_test, data, fat,      ,        528K,
+# Name,     Type, SubType, Offset,    Size,     Flags
+# OTA-capable layout for the Firebird multi-gauge.
+#
+# Two app slots (ota_0 / ota_1) of 4 MB each let esp_https_ota install a
+# new firmware into the inactive slot, mark it boot-pending, reboot, and
+# fall back to the previous slot if the new one fails to boot 3 times.
+# otadata is the small partition the bootloader checks to decide which
+# slot is currently active.  All app partitions must be 64 KB aligned;
+# offsets are arranged to satisfy that.
+#
+# 16 MB total flash usage:
+#   nvs     0x9000   0x6000   = 24 KB    user settings (trip, splash, etc.)
+#   otadata 0xf000   0x2000   = 8 KB     OTA boot tracker
+#   (gap)   0x11000  0xf000              alignment padding to 0x20000
+#   ota_0   0x20000  0x400000 = 4 MB     app slot A
+#   ota_1   0x420000 0x400000 = 4 MB     app slot B
+#   storage 0x820000 0x200000 = 2 MB     SPIFFS (future splash images,
+#                                        fonts, sender calibration data)
+#   (free)  0xa20000 0x5e0000            ~5.9 MB unallocated (room for
+#                                        a third OTA slot if we ever
+#                                        want A/B/C staggered rollouts)
+nvs,        data, nvs,      0x9000,    0x6000,
+otadata,    data, ota,      0xf000,    0x2000,
+ota_0,      app,  ota_0,    0x20000,   0x400000,
+ota_1,      app,  ota_1,    0x420000,  0x400000,
+storage,    data, spiffs,   0x820000,  0x200000,

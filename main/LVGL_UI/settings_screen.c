@@ -43,9 +43,12 @@
                                always the temp gauge. */
 #include "Settings.h"
 #include "Temp_Sender.h"
+#include "OTA.h"
+#include "wifi_sta.h"
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 
 static const char *TAG = "SETTINGS";
 
@@ -79,7 +82,18 @@ static lv_obj_t   *s_splash_val  = NULL;
 static lv_obj_t   *s_buzzer_btn  = NULL;
 static lv_obj_t   *s_buzzer_lbl  = NULL;
 static lv_obj_t   *s_live_lbl    = NULL;
+static lv_obj_t   *s_ota_lbl     = NULL;   /* OTA status text below cards */
 static lv_timer_t *s_live_timer  = NULL;
+
+/* OTA shared state -- progress callback fires from OTA task on core 1,
+ * lvgl runs on core 0. Use plain volatile slots; live_tick() polls them
+ * every 200 ms and updates s_ota_lbl safely from the LVGL thread.
+ * Plenty fast enough since the callback only fires on state changes
+ * and 1%-percent ticks during download. */
+static volatile ota_state_t  s_ota_state   = OTA_STATE_IDLE;
+static volatile int          s_ota_pct     = -1;
+static char                  s_ota_msg[40] = {0};
+static volatile bool         s_ota_dirty   = false;
 
 /* ------------------------------------------------------------------ */
 /* Label refreshers                                                    */
@@ -219,6 +233,86 @@ static void reset_cb(lv_event_t *e)
     refresh_all();
 }
 
+/* ------------------------------------------------------------------ */
+/* OTA: button + progress callback                                     */
+/* ------------------------------------------------------------------ */
+/* Runs on the OTA task (core 1).  DO NOT touch LVGL widgets directly
+ * from here -- just stash the state and let live_tick() pick it up
+ * from the LVGL thread on the next 200 ms cycle. */
+static void ota_progress_cb(ota_state_t st, int percent, const char *msg)
+{
+    s_ota_state = st;
+    s_ota_pct = percent;
+    if (msg && msg[0]) {
+        strncpy(s_ota_msg, msg, sizeof(s_ota_msg) - 1);
+        s_ota_msg[sizeof(s_ota_msg) - 1] = '\0';
+    }
+    s_ota_dirty = true;
+}
+
+static void ota_check_cb(lv_event_t *e)
+{
+    (void)e;
+    if (OTA_IsRunning()) {
+        ESP_LOGW(TAG, "OTA already in progress -- ignoring tap");
+        return;
+    }
+    ESP_LOGI(TAG, "OTA check triggered from settings");
+    /* Pre-fill status so the user gets immediate feedback before the
+     * OTA task even runs. */
+    s_ota_state = OTA_STATE_CONNECTING_WIFI;
+    s_ota_pct = -1;
+    strncpy(s_ota_msg, "Starting...", sizeof(s_ota_msg) - 1);
+    s_ota_msg[sizeof(s_ota_msg) - 1] = '\0';
+    s_ota_dirty = true;
+    OTA_CheckForUpdate(ota_progress_cb);
+}
+
+/* Format the OTA status string for s_ota_lbl based on current state.
+ * Called from live_tick() on the LVGL thread. */
+static void refresh_ota_label(void)
+{
+    if (!s_ota_lbl) return;
+    char line[64];
+    switch (s_ota_state) {
+        case OTA_STATE_IDLE:
+            line[0] = '\0';   /* hide when idle */
+            break;
+        case OTA_STATE_CONNECTING_WIFI:
+            snprintf(line, sizeof(line), "OTA: %s",
+                     s_ota_msg[0] ? s_ota_msg : "Connecting WiFi");
+            break;
+        case OTA_STATE_DOWNLOADING:
+            if (s_ota_pct >= 0)
+                snprintf(line, sizeof(line), "OTA: downloading %d%%", s_ota_pct);
+            else
+                snprintf(line, sizeof(line), "OTA: %s",
+                         s_ota_msg[0] ? s_ota_msg : "Downloading");
+            break;
+        case OTA_STATE_INSTALLING:
+            snprintf(line, sizeof(line), "OTA: installing...");
+            break;
+        case OTA_STATE_REBOOTING:
+            snprintf(line, sizeof(line), "OTA: rebooting!");
+            break;
+        case OTA_STATE_SUCCESS:
+            snprintf(line, sizeof(line), "OTA: updated");
+            break;
+        case OTA_STATE_FAILED:
+            snprintf(line, sizeof(line), "OTA failed: %s",
+                     s_ota_msg[0] ? s_ota_msg : "unknown");
+            break;
+        default:
+            line[0] = '\0';
+    }
+    if (line[0])
+        lv_obj_clear_flag(s_ota_lbl, LV_OBJ_FLAG_HIDDEN);
+    else
+        lv_obj_add_flag(s_ota_lbl, LV_OBJ_FLAG_HIDDEN);
+    lv_label_set_text(s_ota_lbl, line);
+    force_full_redraw();
+}
+
 static void back_cb(lv_event_t *e)
 {
     (void)e;
@@ -230,6 +324,7 @@ static void back_cb(lv_event_t *e)
     }
     s_trip_val = s_offset_val = s_bright_val = s_splash_val = NULL;
     s_buzzer_btn = s_buzzer_lbl = s_live_lbl = NULL;
+    s_ota_lbl = NULL;   /* will be re-created when settings reopens   */
     ESP_LOGI(TAG, "back_cb: -> gauge_screen_show_current");
     /* Return to whichever gauge the user was last viewing, not always
      * the temp gauge. The dispatcher remembers s_current across the
@@ -254,14 +349,32 @@ static void live_tick(lv_timer_t *t)
     (void)t;
     if (!s_live_lbl) return;
 
-    /* Idle timeout: same as the splash-hold setting (1-10 s). */
-    uint32_t idle_ms    = lv_disp_get_inactive_time(NULL);
-    uint32_t timeout_ms = (uint32_t)Settings_GetSplashTimeS() * 1000U;
-    if (idle_ms > timeout_ms) {
-        ESP_LOGI(TAG, "idle %u ms > %u ms, leaving settings",
-                 (unsigned)idle_ms, (unsigned)timeout_ms);
-        back_cb(NULL);   /* tears down timer + state, swaps to gauge */
-        return;
+    /* If an OTA update is in flight, freeze the idle timeout -- the
+     * download takes longer than the splash-time setting (3-10 s) and
+     * we definitely don't want to swap screens mid-install. */
+    bool ota_active = OTA_IsRunning();
+
+    if (!ota_active) {
+        /* Idle timeout: same as the splash-hold setting (1-10 s). */
+        uint32_t idle_ms    = lv_disp_get_inactive_time(NULL);
+        uint32_t timeout_ms = (uint32_t)Settings_GetSplashTimeS() * 1000U;
+        if (idle_ms > timeout_ms) {
+            ESP_LOGI(TAG, "idle %u ms > %u ms, leaving settings",
+                     (unsigned)idle_ms, (unsigned)timeout_ms);
+            back_cb(NULL);   /* tears down timer + state, swaps to gauge */
+            return;
+        }
+    } else {
+        /* Keep activity counter fresh so the moment OTA ends, we don't
+         * immediately bail to the gauge before the user sees the result. */
+        lv_disp_trig_activity(NULL);
+    }
+
+    /* OTA status refresh -- pick up any state changes that happened
+     * since the last tick, push them to s_ota_lbl on the LVGL thread. */
+    if (s_ota_dirty) {
+        s_ota_dirty = false;
+        refresh_ota_label();
     }
 
     float tF = TempSender_GetTempF();
@@ -547,12 +660,18 @@ void show_settings(void)
     const int CARD_X       =  60;
     const int CARD_Y0      =  78;
     const int CARD_STRIDE  =  60;
+    /* Three action buttons in a row now (was two): RESET / OTA / BACK.
+     * Narrower to fit:  3 * 110 + 2 * 10 = 350 wide, 65 px margins. */
     const int ACT_Y        = 384;
     const int ACT_H        =  42;
-    const int ACT_W        = 138;
-    const int ACT_GAP      =  16;
-    const int ACT_X_LEFT   = (480 - (2 * ACT_W + ACT_GAP)) / 2;        /* 94  */
-    const int ACT_X_RIGHT  = ACT_X_LEFT + ACT_W + ACT_GAP;             /* 248 */
+    const int ACT_W        = 110;
+    const int ACT_GAP      =  10;
+    const int ACT_X_LEFT   = (480 - (3 * ACT_W + 2 * ACT_GAP)) / 2;    /* 65  */
+    const int ACT_X_MID    = ACT_X_LEFT + ACT_W + ACT_GAP;             /* 185 */
+    const int ACT_X_RIGHT  = ACT_X_MID  + ACT_W + ACT_GAP;             /* 305 */
+    /* OTA status label sits just above the action button row.  Hidden
+     * unless an OTA is in progress or has just finished. */
+    const int OTA_LBL_Y    = 362;
 
     /* Title ------------------------------------------------------- */
     lv_obj_t *title = lv_label_create(scr);
@@ -584,11 +703,26 @@ void show_settings(void)
     make_buzzer_row(scr);
     lv_obj_set_pos(lv_obj_get_parent(s_buzzer_btn), CARD_X, CARD_Y0 + 4 * CARD_STRIDE);
 
-    /* Action buttons (side-by-side) ------------------------------ */
+    /* OTA status label (hidden by default; live_tick reveals during OTA) */
+    s_ota_lbl = lv_label_create(scr);
+    lv_label_set_text(s_ota_lbl, "");
+    lv_obj_set_style_text_color(s_ota_lbl, lv_color_hex(C_LIVE), 0);
+    lv_obj_set_style_text_font(s_ota_lbl, &lv_font_montserrat_18, 0);
+    lv_obj_align(s_ota_lbl, LV_ALIGN_TOP_MID, 0, OTA_LBL_Y);
+    lv_obj_add_flag(s_ota_lbl, LV_OBJ_FLAG_HIDDEN);
+
+    /* Action buttons (three in a row): RESET / OTA / BACK ----------- */
     lv_obj_t *rst  = make_action_btn(scr, "RESET",
                                      C_RESET_BG, C_RESET_BG_PRESS, reset_cb);
     lv_obj_set_size(rst,  ACT_W, ACT_H);
     lv_obj_set_pos(rst,   ACT_X_LEFT, ACT_Y);
+
+    /* OTA button -- uses the orange muscle-car accent so it visually
+     * pops next to RESET (red) and BACK (green). */
+    lv_obj_t *ota  = make_action_btn(scr, "OTA",
+                                     0xC97B1F, 0xE08F2A, ota_check_cb);
+    lv_obj_set_size(ota,  ACT_W, ACT_H);
+    lv_obj_set_pos(ota,   ACT_X_MID, ACT_Y);
 
     lv_obj_t *back = make_action_btn(scr, "BACK",
                                      C_BACK_BG, C_BACK_BG_PRESS, back_cb);

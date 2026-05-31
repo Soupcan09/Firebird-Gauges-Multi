@@ -24,6 +24,9 @@ idf_component_register(
                               "BAT_Driver/BAT_Driver.c"
                               "Temp_Sender/Temp_Sender.c"
                               "Settings/Settings.c"
+                              "GPS/GPS.c"
+                              "OTA/OTA.c"
+                              "OTA/wifi_sta.c"
 
                         INCLUDE_DIRS "./EXIO"
                                      "./LCD_Driver"
@@ -40,5 +43,19 @@ idf_component_register(
                                      "./BAT_Driver"
                                      "./Temp_Sender"
                                      "./Settings"
+                                     "./GPS"
+                                     "./OTA"
                                      "."
+
+                        # OTA-related ESP-IDF components.  Auto-discovery
+                        # picks up most of these via existing usage
+                        # (esp_wifi from Wireless.c, nvs_flash already
+                        # used), but the OTA-specific ones must be
+                        # explicit or main/OTA/OTA.c won't link.
+                        REQUIRES  esp_https_ota
+                                  esp_http_client
+                                  app_update
+                                  esp_wifi
+                                  esp_netif
+                                  esp_event
                         )

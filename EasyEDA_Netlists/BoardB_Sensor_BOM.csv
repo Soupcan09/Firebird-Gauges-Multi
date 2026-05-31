@@ -1,0 +1,10 @@
+Reference,Value,EasyEDA Search,LCSC Part #,Description
+J1,I2C IN,JST PH 4P 2.0mm,"(THT, hand-solder)",4-pin JST PH 2.0mm vertical. Matches Waveshare's I2C JST.
+U1,ADS1115,ADS1115IDGSR,C37593,16-bit I2C ADC TSSOP-10. JLCPCB SMD assembly. Confirmed code.
+C3,0.1uF / 50V,0.1uF 0805 X7R 50V,C49678,"YAGEO MLCC. VDD decoupling, place <3mm from U1.8. Confirmed code."
+JP1,ADDR=GND,solder jumper 2P 0805,(footprint only),Two pads close together; bridge with solder during assembly. Or use a 0R 0805 resistor.
+R8,1k 1%,1k 0603 1%,C21190,UNI-ROYAL 0603WAF1001T5E. Pulls SENSE up to +3V3. Confirmed code.
+C2,0.1uF / 50V,0.1uF 0805 X7R 50V,C49678,YAGEO MLCC. SENSE noise filter. Same code as C3. Confirmed.
+TVS2,BAT54S,BAT54S,C545549,UMW BAT54S SOT-23 dual schottky. Clamps SENSE to GND/3V3. Confirmed code.
+R11,100R 1%,100R 0603 1%,C22775,UNI-ROYAL 0603WAF1000T5E. Series limit on SIG out. Confirmed code.
+J2,SENSOR,screw terminal 5.08mm 2P,"(THT, hand-solder)",5.08mm 2-pin PCB screw terminal. Connects to sender wire.

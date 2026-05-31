@@ -1,0 +1,8 @@
+Reference,Value,EasyEDA Search,LCSC Part #,Description
+J1,12V IN,screw terminal 5.08mm 2P,"(THT, hand-solder)",5.08mm 2-pin PCB screw terminal. Pick any one EasyEDA shows with 5.08mm pitch + 2 pins.
+F1,1A slow-blow ATO,fuse holder ATO PCB,"(THT, hand-solder)",PCB-mount ATO blade fuse holder. Pick any THT footprint. Buy the actual holder on Amazon.
+D1,1N5822,1N5822,"(THT, hand-solder)",Schottky 40V/3A axial DO-201AD. EasyEDA finds it as '1N5822' easily.
+TVS1,1.5KE24CA,1.5KE24CA OR 1.5KE TVS,"(THT, hand-solder)","Bidirectional 1500W axial TVS. If exact part not found, pick any DO-201AD TVS symbol; the value field labels the part."
+C1,220uF / 35V,220uF 35V electrolytic,"(THT, hand-solder)","Aluminum electrolytic, radial. Pick any 8mm-diameter THT cap symbol."
+BUCK,LM2596 12V->5V,4-pin header 2.54mm,(module socket),Pre-built sub-module. Place a generic 4-pin male header (search '4 pin header 2.54' in LCSC). Label pins +IN / GND / +OUT / GND. Plug actual LM2596 module on top during assembly.
+J2,5V OUT,screw terminal 3.5mm 4P,"(THT, hand-solder)",3.5mm 4-pin PCB screw terminal. Two paralleled +5V/GND rails. Any matching footprint works.

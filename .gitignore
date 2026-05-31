@@ -47,3 +47,14 @@ env/
 *.swp
 *.swo
 *~
+
+# --- OTA secrets --------------------------------------------------
+# WiFi credentials and OTA server URL live in ota_config.h, which is
+# NEVER committed.  Copy ota_config.h.example -> ota_config.h and
+# fill in your local network details.
+main/OTA/ota_config.h
+
+# --- OTA serving directory ---------------------------------------
+# scripts/serve_firmware.py drops the latest binary here for HTTP
+# pickup.  Not source code -- regenerated on every server start.
+serve/

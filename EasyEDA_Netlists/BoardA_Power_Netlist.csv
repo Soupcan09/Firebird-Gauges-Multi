@@ -1,0 +1,6 @@
+Net,Pins (Component.PinNumber),Notes
++12V_IN,"J1.1, F1.1","Raw 12V from car, pre-fuse"
++12V_FUSED,"F1.2, TVS1.1, D1.A",After fuse; TVS1 clamps to GND on overvolt
++12V_PROT,"D1.K, C1.+, BUCK.+IN",After D1 reverse-polarity block; C1 is bulk reservoir
++5V_OUT,"BUCK.+OUT, J2.1, J2.3",Regulated 5V; J2 has two paralleled outputs (Wave + GPS)
+GND,"J1.2, TVS1.2, C1.-, BUCK.GND, J2.2, J2.4",Star-ground -- all return paths converge near BUCK.GND
