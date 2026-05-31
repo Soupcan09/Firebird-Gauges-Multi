@@ -2,7 +2,7 @@
  * wifi_sta.h -- on-demand WiFi STA association.
  *
  * The existing Wireless.c module starts WiFi at boot and uses it for
- * scanning. wifi_sta_connect_blocking() takes over from that and
+ * scanning. ota_wifi_connect_blocking() takes over from that and
  * actually associates with the AP named in ota_config.h, returning
  * once the gauge has an IP address (or after the timeout).
  *
@@ -27,16 +27,16 @@ extern "C" {
  *   - the timeout elapses                -> returns false
  *   - WiFi reports a permanent error      -> returns false
  */
-bool wifi_sta_connect_blocking(void);
+bool ota_wifi_connect_blocking(void);
 
 /* Tear down the STA association.  Safe to call even if not connected.
  * Leaves WiFi initialized so the existing scanning code in Wireless.c
  * still works. */
-void wifi_sta_disconnect(void);
+void ota_wifi_disconnect(void);
 
 /* Helper for UI status: returns true if currently associated and has
  * an IP.  Reads cached state, doesn't probe the radio. */
-bool wifi_sta_is_connected(void);
+bool ota_wifi_is_connected(void);
 
 #ifdef __cplusplus
 }

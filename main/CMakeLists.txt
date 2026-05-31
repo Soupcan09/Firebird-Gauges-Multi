@@ -47,15 +47,37 @@ idf_component_register(
                                      "./OTA"
                                      "."
 
-                        # OTA-related ESP-IDF components.  Auto-discovery
-                        # picks up most of these via existing usage
-                        # (esp_wifi from Wireless.c, nvs_flash already
-                        # used), but the OTA-specific ones must be
-                        # explicit or main/OTA/OTA.c won't link.
-                        REQUIRES  esp_https_ota
-                                  esp_http_client
-                                  app_update
-                                  esp_wifi
-                                  esp_netif
-                                  esp_event
+                        # ESP-IDF components used by main/.
+                        # IMPORTANT: as soon as we add ANY REQUIRES,
+                        # ESP-IDF stops auto-discovering components --
+                        # so we have to enumerate everything the existing
+                        # drivers were getting implicitly, PLUS the new
+                        # OTA stuff.  Adding a component here that's
+                        # already present is harmless; missing one
+                        # causes "fatal error: driver/foo.h: No such
+                        # file or directory".
+                        REQUIRES
+                            # Pre-existing peripheral drivers
+                            driver
+                            esp_driver_gpio
+                            esp_driver_spi
+                            esp_driver_i2c
+                            esp_driver_uart
+                            esp_driver_ledc
+                            esp_lcd
+                            esp_adc
+                            sdmmc
+                            fatfs
+                            vfs
+                            nvs_flash
+                            spi_flash
+                            # WiFi + Bluetooth (Wireless.c)
+                            esp_wifi
+                            esp_netif
+                            esp_event
+                            bt
+                            # OTA path additions
+                            esp_https_ota
+                            esp_http_client
+                            app_update
                         )

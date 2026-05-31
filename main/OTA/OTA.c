@@ -5,7 +5,7 @@
  * (works fine for plain HTTP too). The flow:
  *
  *   1) Spawn a one-shot ota_task on core 1.
- *   2) Task connects WiFi via wifi_sta_connect_blocking() (15 s tmo).
+ *   2) Task connects WiFi via ota_wifi_connect_blocking() (15 s tmo).
  *   3) Task hands a URL + http config to esp_https_ota_begin().
  *   4) Task loops esp_https_ota_perform() to download chunks, calling
  *      the progress callback with bytes-read / total-image-len * 100.
@@ -63,7 +63,7 @@ static void ota_task(void *arg)
 
     /* --- Step 1: connect WiFi --- */
     fire(OTA_STATE_CONNECTING_WIFI, -1, "Connecting to WiFi");
-    if (!wifi_sta_connect_blocking()) {
+    if (!ota_wifi_connect_blocking()) {
         ESP_LOGE(TAG, "WiFi connect failed");
         fire(OTA_STATE_FAILED, -1, "WiFi timeout");
         goto cleanup;
@@ -153,7 +153,7 @@ static void ota_task(void *arg)
     /* NOTREACHED */
 
 cleanup:
-    wifi_sta_disconnect();
+    ota_wifi_disconnect();
     s_running = false;
     s_cancel = false;
     vTaskDelete(NULL);

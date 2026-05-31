@@ -77,7 +77,7 @@ static void ensure_handlers_registered(void)
 /* ------------------------------------------------------------------ */
 /* Public                                                              */
 /* ------------------------------------------------------------------ */
-bool wifi_sta_connect_blocking(void)
+bool ota_wifi_connect_blocking(void)
 {
     ensure_handlers_registered();
     s_got_ip = false;
@@ -113,14 +113,14 @@ bool wifi_sta_connect_blocking(void)
     return false;
 }
 
-void wifi_sta_disconnect(void)
+void ota_wifi_disconnect(void)
 {
     ESP_LOGI(TAG, "disconnecting STA");
     esp_wifi_disconnect();
     s_got_ip = false;
 }
 
-bool wifi_sta_is_connected(void)
+bool ota_wifi_is_connected(void)
 {
     return s_got_ip;
 }
