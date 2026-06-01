@@ -64,6 +64,7 @@ void app_main(void)
     TempSender_Init();    // ADS1115 + Prosport sender -> drives the temp needle
     GPS_Init();           // BN-880 NMEA receiver on UART0 (JST UART connector)
     OTA_Init();           // OTA rollback self-check; module ready to receive update triggers
+    OTA_StartAutoPoll(30000); // every 30s: check server for new firmware, install if newer
 
     // lv_demo_widgets();
     // lv_demo_keypad_encoder();

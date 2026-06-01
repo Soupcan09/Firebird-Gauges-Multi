@@ -11,6 +11,7 @@ idf_component_register(
                               "SD_Card/SD_MMC.c"
                               "LVGL_UI/LVGL_Example.c"
                               "LVGL_UI/gauge_face_classic.c"
+                              "LVGL_UI/gauge_face_speed.c"
                               "LVGL_UI/needle_img.c"
                               "LVGL_UI/display_gauge.c"
                               "LVGL_UI/splash_img.c"

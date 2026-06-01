@@ -17,6 +17,7 @@
 #define OTA_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,6 +53,22 @@ bool OTA_IsRunning(void);
 /* Cancel the in-flight update.  Best-effort -- the HTTP download will
  * abort at the next chunk read.  Safe to call from the UI thread. */
 void OTA_Cancel(void);
+
+/* Start the background auto-poll task.  Every interval_ms milliseconds
+ * the task connects WiFi, opens an HTTP connection to the firmware
+ * server, reads just the embedded esp_app_desc header, and compares
+ * its compile-time string against the running firmware.  If they
+ * differ -> install + reboot.  If they match -> abort + disconnect
+ * WiFi + sleep until the next interval.
+ *
+ * Designed for "Jeff just rebuilt and ran the server, gauges pick up
+ * the new firmware within ~30 s automatically" workflow.  Skips the
+ * manual button-press loop.  The manual OTA_CheckForUpdate() button
+ * still works for forcing an update RIGHT NOW.
+ *
+ * Auto-poll is silently a no-op while a manual update is in flight
+ * (OTA_IsRunning() == true) so there's never a collision. */
+void OTA_StartAutoPoll(uint32_t interval_ms);
 
 #ifdef __cplusplus
 }
